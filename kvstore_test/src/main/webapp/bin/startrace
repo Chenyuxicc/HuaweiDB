@@ -2,6 +2,7 @@
 ##################################################
 # KV HOME
 ##################################################
+JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 FILEPATH=$(cd "$(dirname "$0")";cd ..; pwd)
 #logging filepath:$FILEPATH
 
@@ -21,7 +22,7 @@ exec 2>>$LOG_FILE
 ##################################################
 logging()
 {
-  local currenttime=`date +"%Y-%m-%d %H:%M:%S"`
+  local currenttime=`date +"%Y-%m-%d%H:%M:%S"`
   echo "[${currenttime}]" "[KVServer]" $*
 }
 
@@ -31,7 +32,7 @@ then
   exit 1
 fi
 
-JAVA_OPTIONS="-server -Xms4096m -Xmx4096m -XX:MaxDirectMemorySize=256m -XX:MaxMetaspaceSize=300m -XX:NewRatio=1 -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:-UseBiasedLocking -Dkvs.home=$KV_HOME -Dkvs.check.mode=test -Dkvs.execute.mode=$2 -Dkvs.per.thread.kv.num=$3"
+JAVA_OPTIONS="-server -Xms4096m -Xmx4096m -XX:MaxDirectMemorySize=256m -XX:MaxMetaspaceSize=300m -XX:NewRatio=1 -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:-UseBiasedLocking -Dkvs.home=$KV_HOME -Dkvs.check.mode=test -Dkvs.execute.mode=race -Dkvs.per.thread.kv.num=1"
 
 if [ $# -ge 4 ] 
 then

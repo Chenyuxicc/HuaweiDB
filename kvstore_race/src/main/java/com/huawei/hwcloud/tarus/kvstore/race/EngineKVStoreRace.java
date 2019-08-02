@@ -34,80 +34,88 @@ public class EngineKVStoreRace implements KVStoreRace {
 	//每个线程维护自己的map.map中存放key和value在自己文件中的偏移值，偏移指的是该value在文件中的位置，是第几个value
 	private  LongIntHashMap map = new LongIntHashMap(4500000,0.99);
 
-	private static FastThreadLocal<ByteBuffer> localBufferValue = new FastThreadLocal<ByteBuffer>() {
+	private FastThreadLocal<ByteBuffer> localBufferValue = new FastThreadLocal<ByteBuffer>() {
 		@Override
 		protected ByteBuffer initialValue() throws Exception {
 			return ByteBuffer.allocateDirect(VALUE_LEN);
 		}
 	};
-	private static FastThreadLocal<ByteBuffer> localBufferKeyOff = new FastThreadLocal<ByteBuffer>() {
+	private FastThreadLocal<ByteBuffer> localBufferKeyOff = new FastThreadLocal<ByteBuffer>() {
 		@Override
 		protected ByteBuffer initialValue() throws Exception {
 			return ByteBuffer.allocateDirect(KEY_AND_OFFSET);
 		}
 	};
-	private static FastThreadLocal<byte[]> localValueBytes = new FastThreadLocal<byte[]>(){
+	private FastThreadLocal<byte[]> localValueBytes = new FastThreadLocal<byte[]>(){
 		@Override
 		protected byte[] initialValue() throws Exception{
 			return new byte[VALUE_LEN];
 		}
 	};
 
+	private  int threadId = -1;
     @Override
 	public boolean init(final String dir, final int file_size) throws KVSException {
 		logger.info("---------------init--------------");
+		this.threadId = file_size;
 		File file = new File(dir);
 		String path = file.getParent();
-		this.dir = path;
-		File file1 = new File(this.dir);
-		System.out.println("---------dir:"+dir+"---------");
-		System.out.println("---------path:"+path+"---------");
-		System.out.println("---------file_size:"+file_size+"---------");
-		if(!file1.exists()){
-			file1.mkdirs();
+
+		File parent = new File(path);
+		this.dir = path+"/data_"+threadId;
+		File fileData = new File(this.dir);
+		if(!fileData.exists()){
+			fileData.mkdirs();
 		}
 		RandomAccessFile randomAccessFile;
 		try {
 			String threadName = Thread.currentThread().getName();
-			String threadId = threadName.split("-")[3];
-			System.out.println("threadid:"+threadId);
+			logger.info("---------threadname&&threadid------------------");
+			logger.info("threadName={}",threadName);
+			logger.info("threadid={}",this.threadId);
+			logger.info("maphashcode={}",this.map.hashCode());
+			logger.info("---------threadname&&threadid------------------");
+
 			//初始化file文件
 			for (int i = 0; i < VALUE_FILE_COUNT ; i++) {
-				randomAccessFile = new RandomAccessFile(this.dir + File.separator + i + "_threadId_"+threadId+".data" , "rw");
+				randomAccessFile = new RandomAccessFile(this.dir + File.separator + i + "_threadId_"+this.threadId+".data" , "rw");
 				FileChannel fileChannel = randomAccessFile.getChannel();
 				fileChannels[i] = fileChannel;
 				valueOffsets[i] = new AtomicInteger((int) (randomAccessFile.length() >>> SHIFT_NUM));
-				System.out.println("--------------value count---------");
-				System.out.println("valueOffsets[i]:"+valueOffsets[i].get());
-				System.out.println("--------------value count---------");
+				logger.info("--------------value count---------");
+                logger.info("valueOffsets[i]:{}",valueOffsets[i].get());
+                logger.info("--------------value count---------");
 			}
-			randomAccessFile = new RandomAccessFile(this.dir + File.separator + "threadId_"+ threadId+ "_keyoff.key","rw");
+			randomAccessFile = new RandomAccessFile(this.dir + File.separator + "threadId_"+ this.threadId + "_keyoff.key","rw");
 			keyChannel = randomAccessFile.getChannel();
 			keyOffset = new AtomicInteger((int)randomAccessFile.length() / KEY_AND_OFFSET);
-			System.out.println("------------------key count----------------");
-			System.out.println("keyOffset[i]:"+keyOffset.get());
-			System.out.println("------------------key count----------------");
+            logger.info("--------------value count---------");
+            logger.info("keyOffsets:{}",keyOffset.get());
+            logger.info("--------------value count---------");
 			int start = 0;
 			int end = keyOffset.get() * KEY_AND_OFFSET;
 			//先把keyChannel的position置为0
 			keyChannel.position(0);
-			while (start < end){
-				//获取localBuffer，避免重复创建buffer，浪费资源
-				ByteBuffer buffer = localBufferKeyOff.get();
-				buffer.clear();
-				//从start的位置读取keyChannel的内容到buffer中
-				keyChannel.read(buffer,start);
-				//修改buffer的位置
-				buffer.position(0);
-				//从buffer中读取key和off的值
-				long key = buffer.getLong();
-				int off = buffer.getInt();
-				//改变keyChannel的读取位置
-				start += KEY_AND_OFFSET;
-				//将key和off放入索引的map中
-				map.put(key,off);
+			if(end > 0 ){
+				while (start < end){
+					//获取localBuffer，避免重复创建buffer，浪费资源
+					ByteBuffer buffer = localBufferKeyOff.get();
+					buffer.clear();
+					//从start的位置读取keyChannel的内容到buffer中
+					keyChannel.read(buffer,start);
+					//修改buffer的位置
+					buffer.position(0);
+					//从buffer中读取key和off的值
+					long key = buffer.getLong();
+					int off = buffer.getInt();
+					//改变keyChannel的读取位置
+					start += KEY_AND_OFFSET;
+					//将key和off放入索引的map中
+					map.put(key,off);
 
+				}
 			}
+
 		}catch (Exception e){
 			e.printStackTrace();
 		}
@@ -136,6 +144,7 @@ public class EngineKVStoreRace implements KVStoreRace {
 				off = valueOffsets[fileHash].getAndIncrement();
 				//将key off写入索引map
 				map.put(numKey, off);
+//				logger.info("numkey={},off={}",numKey,off);
 
 				//将key off持久化
 				ByteBuffer keyOffBuffer = localBufferKeyOff.get() ;
@@ -160,21 +169,24 @@ public class EngineKVStoreRace implements KVStoreRace {
 		final long numKey = Long.parseLong(key);
 		final int fileHash = valueFileHash(numKey);
 		int off = map.getOrDefault(numKey,-1);
+//		logger.info("--------------off={},numkey={}----------",off,numKey);
 		if(off == -1){
-			System.out.println("readnum:"+numKey);
-			System.out.println("off = -1");
+			logger.info("readnum={}",numKey);
+			logger.info("off=-1");
 			val.setValue(null);
 			return -1;
 		}
 		byte[] bytes = localValueBytes.get();
 		try {
 			ByteBuffer buffer = localBufferValue.get();
+			buffer.clear();
 			//从filechannels中读取数据到buffer中
 			fileChannels[fileHash].read(buffer,(long) off << SHIFT_NUM);
 			//从buffer中读取数据到bytes中
 			buffer.position(0);
 			buffer.get(bytes,0,VALUE_LEN);
 			//将数组设置为value的值
+//			logger.info("--------------off={},numkey={},fileHash={},value={},threadNum={}----------",off,numKey,fileHash,Util.bytes2long(bytes),this.threadId);
 			val.setValue(bytes);
 			bytes = val.getValue();
 			buffer.clear();

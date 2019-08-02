@@ -34,7 +34,7 @@ then
   exit 1
 fi
 
-JAVA_OPTIONS="-server -Xms4096m -Xmx4096m -XX:MaxDirectMemorySize=256m -XX:NewRatio=1 -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:-UseBiasedLocking -Dkvs.home=$KV_HOME -Dkvs.check.mode=$1 -Dkvs.execute.mode=$2 -Dkvs.per.thread.kv.num=$3"
+JAVA_OPTIONS="-server -Xms4096m -Xmx4096m -XX:MaxDirectMemorySize=256m -XX:NewRatio=1 -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:-UseBiasedLocking -Dkvs.home=$KV_HOME -Dkvs.check.mode=test -Dkvs.execute.mode=race -Dkvs.per.thread.kv.num=1"
 
 if [ $# -ge 4 ] 
 then

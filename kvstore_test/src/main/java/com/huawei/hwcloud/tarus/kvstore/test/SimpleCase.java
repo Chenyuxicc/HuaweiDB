@@ -56,7 +56,7 @@ public class SimpleCase {
             Ref<byte[]> val_ref = Ref.of(byte[].class);
             racer.get(key, val_ref);
             if (!Arrays.equals(val_ref.getValue(), val)) {
-                log.error("get key=[{}] error, val size=[{}]", i, val.length);
+                log.error("hhhhhget key=[{}] error, val size=[{}]", i, val.length);
                 break;
             }
         }
@@ -69,7 +69,7 @@ public class SimpleCase {
             Ref<byte[]> val_ref = Ref.of(byte[].class);
             racer.get(key, val_ref);
             if (!Arrays.equals(val_ref.getValue(), val)) {
-                log.error("get key=[{}] error, val size=[{}]", i, val.length);
+                log.error("jjjjjjget key=[{}] error, val size=[{}]", i, val.length);
                 break;
             }
         }
