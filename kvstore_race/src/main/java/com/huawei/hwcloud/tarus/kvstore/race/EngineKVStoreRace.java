@@ -96,26 +96,23 @@ public class EngineKVStoreRace implements KVStoreRace {
 			int end = keyOffset.get() * KEY_AND_OFFSET;
 			//先把keyChannel的position置为0
 			keyChannel.position(0);
-			if(end > 0 ){
-				while (start < end){
-					//获取localBuffer，避免重复创建buffer，浪费资源
-					ByteBuffer buffer = localBufferKeyOff.get();
-					buffer.clear();
-					//从start的位置读取keyChannel的内容到buffer中
-					keyChannel.read(buffer,start);
-					//修改buffer的位置
-					buffer.position(0);
-					//从buffer中读取key和off的值
-					long key = buffer.getLong();
-					int off = buffer.getInt();
-					//改变keyChannel的读取位置
-					start += KEY_AND_OFFSET;
-					//将key和off放入索引的map中
-					map.put(key,off);
+			while (start < end){
+				//获取localBuffer，避免重复创建buffer，浪费资源
+				ByteBuffer buffer = localBufferKeyOff.get();
+				buffer.clear();
+				//从start的位置读取keyChannel的内容到buffer中
+				keyChannel.read(buffer,start);
+				//修改buffer的位置
+				buffer.position(0);
+				//从buffer中读取key和off的值
+				long key = buffer.getLong();
+				int off = buffer.getInt();
+				//改变keyChannel的读取位置
+				start += KEY_AND_OFFSET;
+				//将key和off放入索引的map中
+				map.put(key,off);
 
-				}
 			}
-
 		}catch (Exception e){
 			e.printStackTrace();
 		}
@@ -169,7 +166,7 @@ public class EngineKVStoreRace implements KVStoreRace {
 		final long numKey = Long.parseLong(key);
 		final int fileHash = valueFileHash(numKey);
 		int off = map.getOrDefault(numKey,-1);
-//		logger.info("--------------off={},numkey={}----------",off,numKey);
+		logger.info("--------------off={},numkey={}----------",off,numKey);
 		if(off == -1){
 			logger.info("readnum={}",numKey);
 			logger.info("off=-1");
