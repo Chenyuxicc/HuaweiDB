@@ -31,6 +31,10 @@ public class EngineKVStoreRace implements KVStoreRace {
     private  FileChannel keyChannel = null;
 	private  AtomicInteger keyOffset = null;
 
+	private static int WRITE_TIME = 0;
+	private static int READ_TIME = 0;
+
+
 	//每个线程维护自己的map.map中存放key和value在自己文件中的偏移值，偏移指的是该value在文件中的位置，是第几个value
 	private  LongIntHashMap map = new LongIntHashMap(4500000,0.99);
 
@@ -122,7 +126,9 @@ public class EngineKVStoreRace implements KVStoreRace {
 
 	@Override
 	public long set(final String key, final byte[] value) throws KVSException {
-		final long numKey = Long.parseLong(key);
+		WRITE_TIME++;
+
+    	final long numKey = Long.parseLong(key);
 		final int fileHash = valueFileHash(numKey);
 		int off;
 		try{
@@ -152,6 +158,9 @@ public class EngineKVStoreRace implements KVStoreRace {
 				keyOffBuffer.position(0);
 				keyChannel.write(keyOffBuffer);
 
+				if(WRITE_TIME == 1 || WRITE_TIME == 300000){
+					logger.info("-----numkey={},off={},value={}-----",numKey,off,value);
+				}
 				//将value持久化
 				fileChannels[fileHash].write(buffer, off << SHIFT_NUM);
 			}
@@ -163,10 +172,11 @@ public class EngineKVStoreRace implements KVStoreRace {
 	}
 	@Override
 	public long get(final String key, final Ref<byte[]> val) throws KVSException {
+    	READ_TIME++;
 		final long numKey = Long.parseLong(key);
 		final int fileHash = valueFileHash(numKey);
 		int off = map.getOrDefault(numKey,-1);
-		logger.info("--------------off={},numkey={}----------",off,numKey);
+//		logger.info("--------------off={},numkey={}----------",off,numKey);
 		if(off == -1){
 			logger.info("readnum={}",numKey);
 			logger.info("off=-1");
@@ -186,6 +196,9 @@ public class EngineKVStoreRace implements KVStoreRace {
 //			logger.info("--------------off={},numkey={},fileHash={},value={},threadNum={}----------",off,numKey,fileHash,Util.bytes2long(bytes),this.threadId);
 			val.setValue(bytes);
 			bytes = val.getValue();
+			if(READ_TIME == 1 || READ_TIME == 300000){
+				logger.info("-----numkey={},off={},value={}-----",numKey,off,bytes);
+			}
 			buffer.clear();
 			return bytes2long(bytes);
 		}catch (Exception e){
